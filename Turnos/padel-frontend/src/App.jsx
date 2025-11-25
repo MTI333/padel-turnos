@@ -161,6 +161,8 @@ function App() {
 
   if (!initialized) return <div className="loading">Cargando Sistema...</div>;
 
+  const todayISO = new Date().toISOString().split('T')[0];
+
   const dias = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
   return (
@@ -196,7 +198,7 @@ function App() {
               </div>
               <div className="form-group">
                 <label>Fecha:</label>
-                <input type="date" value={fechaReserva} onChange={e => setFechaReserva(e.target.value)} />
+                <input type="date" value={fechaReserva} onChange={e => setFechaReserva(e.target.value)} min={todayISO} />
               </div>
               <button className="btn-primary" style={{width: '100%', marginTop: '10px'}} onClick={buscarDisponibilidad}>
                 {buscandoSlots ? '...' : '🔍 Buscar Disponibilidad'}

@@ -27,7 +27,7 @@ const keycloakConfig = {
   "ssl-required": 'none',
   resource: 'padel-backend', 
   credentials: {
-    secret: 'bHqsq9qcY5eId5NV2TuYu9kMKks5aXcN' // Tu secret
+    secret: 'alwoEazsSho35pHeYSbOmanHLS2vV2c0' // Tu secret
   },
   "confidential-port": 0,
   "bearer-only": true
@@ -238,51 +238,78 @@ app.get('/api/turnos/disponibles', keycloak.protect(), async (req, res) => {
 
 // --- RESERVAR TURNO ---
 app.post('/api/turnos/reservar', keycloak.protect(), async (req, res) => {
-  try {
-    const usuarioId = req.kauth.grant.access_token.content.sub; 
-    const { canchaId, fecha, hora } = req.body; 
+  try {
+    const usuarioId = req.kauth.grant.access_token.content.sub; 
+    const { canchaId, fecha, hora } = req.body; 
 
-    if (!canchaId || !fecha || !hora) return res.status(400).json({ message: 'Faltan datos' });
+    if (!canchaId || !fecha || !hora) return res.status(400).json({ message: 'Faltan datos' });
 
-    const [year, month, day] = fecha.split('-').map(Number);
-    const fechaBase = new Date(year, month - 1, day);
-    const diaSemana = fechaBase.getDay();
+    // === VALIDACIÓN DE FECHA Y DÍA ===
+    const [year, month, day] = fecha.split('-').map(Number);
+    const fechaReservaBase = new Date(year, month - 1, day); 
 
-    const horarioConfig = await Horario.findOne({
-      where: { cancha_id: canchaId, dia_semana: diaSemana }
-    });
+    const hoy = new Date();
+    const soloHoy = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()); 
 
-    if (!horarioConfig) return res.status(400).json({ message: 'Cancha cerrada' });
+    // 1. Validación de DÍA PASADO
+    if (fechaReservaBase < soloHoy) {
+      return res.status(400).json({ message: 'No se puede reservar turnos para fechas pasadas.' });
+    }
+    
+    // 2. Cálculo del inicio del turno
+    const [h, m] = hora.split(':').map(Number);
+    
+    // Creamos la fecha de inicio final que guardaremos en la DB (con la hora correcta)
+    const fechaInicio = new Date(fechaReservaBase); // Usamos la fecha limpia de la reserva
+    fechaInicio.setHours(h, m, 0, 0); 
+    
+    // 3. Validación de HORA PASADA (SOLO si la reserva es para HOY)
+    if (fechaReservaBase.getTime() === soloHoy.getTime()) {
+        // Comparamos la fecha de inicio del turno con la hora actual
+        if (fechaInicio < new Date()) { 
+            return res.status(400).json({ message: 'El horario seleccionado ya ha pasado para el día de hoy.' });
+        }
+    }
 
-    const [h, m] = hora.split(':').map(Number);
-    const fechaInicio = new Date(fechaBase);
-    fechaInicio.setHours(h, m, 0, 0);
-    const fechaFin = new Date(fechaInicio.getTime() + horarioConfig.duracion_turno_min * 60000);
+    // 🔴 CORRECCIÓN: Usar fechaReservaBase para obtener el día de la semana
+    const diaSemana = fechaReservaBase.getDay(); 
 
-    const ocupado = await Turno.findOne({
-      where: {
-        cancha_id: canchaId,
-        hora_inicio: fechaInicio,
-        estado: { [Op.ne]: 'Cancelado' }
-      }
-    });
+    const horarioConfig = await Horario.findOne({
+      where: { cancha_id: canchaId, dia_semana: diaSemana }
+    });
 
-    if (ocupado) return res.status(409).json({ message: 'Turno ya reservado' });
+    if (!horarioConfig) return res.status(400).json({ message: 'Cancha cerrada' });
 
-    const nuevoTurno = await Turno.create({
-      cancha_id: canchaId,
-      usuario_id: usuarioId,
-      hora_inicio: fechaInicio,
-      hora_fin: fechaFin,
-      estado: 'Confirmado'
-    });
+    // ⚠️ IMPORTANTE: ¡fechaInicio ya fue calculada arriba! La reutilizamos aquí.
+    // const fechaInicio = new Date(fechaBase); // ELIMINADA
+    // fechaInicio.setHours(h, m, 0, 0);       // ELIMINADA
 
-    res.status(201).json(nuevoTurno);
+    const fechaFin = new Date(fechaInicio.getTime() + horarioConfig.duracion_turno_min * 60000);
 
-  } catch (error) {
-    console.error('Error reservando:', error);
-    res.status(500).json({ message: 'Error al reservar' });
-  }
+    const ocupado = await Turno.findOne({
+      where: {
+        cancha_id: canchaId,
+        hora_inicio: fechaInicio,
+        estado: { [Op.ne]: 'Cancelado' }
+      }
+    });
+
+    if (ocupado) return res.status(409).json({ message: 'Turno ya reservado' });
+
+    const nuevoTurno = await Turno.create({
+      cancha_id: canchaId,
+      usuario_id: usuarioId,
+      hora_inicio: fechaInicio,
+      hora_fin: fechaFin,
+      estado: 'Confirmado'
+    });
+
+    res.status(201).json(nuevoTurno);
+
+  } catch (error) {
+    console.error('Error reservando:', error);
+    res.status(500).json({ message: 'Error al reservar' });
+  }
 });
 
 // --- CANCELAR TURNO (USUARIO) ---
