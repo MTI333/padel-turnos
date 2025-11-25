@@ -122,12 +122,30 @@ app.get('/api/admin/horarios', keycloak.protect(), checkRole('club-admin'), asyn
 });
 
 app.post('/api/admin/horarios', keycloak.protect(), checkRole('club-admin'), async (req, res) => {
-  try {
-    const nuevo = await Horario.create(req.body);
-    res.status(201).json(nuevo);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
+  try {
+    const { cancha_id, dia_semana } = req.body;
+
+    // 1. Verificar duplicidad: Buscar si ya existe un horario para esta cancha y día
+    const horarioExistente = await Horario.findOne({
+      where: { cancha_id, dia_semana }
+    });
+
+    if (horarioExistente) {
+      // 2. Si existe, actualizar el horario existente (previene duplicados)
+      await horarioExistente.update(req.body);
+      return res.status(200).json({ 
+          message: 'Horario actualizado (evitando duplicado)', 
+          horario: horarioExistente 
+      });
+    }
+
+    // 3. Si no existe, creamos el nuevo horario (comportamiento original)
+    const nuevo = await Horario.create(req.body);
+    res.status(201).json(nuevo);
+  } catch (error) {
+    console.error('Error al crear/actualizar horario:', error);
+    res.status(500).json({ message: error.message });
+  }
 });
 
 app.delete('/api/admin/horarios/:id', keycloak.protect(), checkRole('club-admin'), async (req, res) => {

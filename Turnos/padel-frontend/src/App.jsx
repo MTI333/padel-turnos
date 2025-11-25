@@ -111,6 +111,7 @@ function App() {
       const hoy = new Date().toISOString().split('T')[0];
       setCanchaReserva(canchaSeleccionadaAdmin);
       setFechaReserva(hoy);
+      buscarDisponibilidad();
     } catch (error) { alert(error.message); }
   };
 
