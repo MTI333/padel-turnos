@@ -63,13 +63,10 @@ const checkRole = (roleName) => {
   };
 };
 
-// 🔴 Se elimina la exportación directa de keycloak y checkRole.
-
 // =================================================================
 // === MONTAJE DE ENDPOINTS MODULARIZADOS (SOLUCIÓN AL ERROR) ===
 // =================================================================
 
-// 💡 Al montar, llamamos a la función de la ruta y le pasamos keycloak y checkRole
 app.use('/api/canchas', CanchasRoutes(keycloak, checkRole)); 
 app.use('/api/admin', AdminRoutes(keycloak, checkRole));
 app.use('/api/turnos', TurnosRoutes(keycloak, checkRole));

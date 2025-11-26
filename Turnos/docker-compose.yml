@@ -26,7 +26,7 @@ services:
       # Administrador para la primera vez
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
-      # 🔴 CORRECCIÓN CLAVE: Solo el nombre de host (sin puerto)
+      # Solo el nombre base de host, enlaces y tokens (sin puerto)
       KC_HOSTNAME: localhost 
       # Permite iniciar en HTTP sin SSL
       KC_HTTP_ENABLED: true 
